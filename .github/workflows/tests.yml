@@ -1,0 +1,43 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+  jobs:
+    test:
+      runs-on: ubuntu-latest
+
+      services:
+        postgres:
+          image: postgres:16
+          env:
+            POSTGRES_USER: weather_user
+            POSTGRES_PASSWORD: weather_password
+            POSTGRES_DB: weather_ingestion
+          ports:
+            - 5432:5432
+          options: >-
+            --health-cmd="pg_isready -U weather_user"
+            --health-interval=10s
+            --health-timeout=5s
+            --health-retries=5
+
+      steps:
+        - uses: actions/checkout@v4
+
+        - uses: actions/setup-python@v5
+          with:
+            python-version: "3.12"
+        
+        - run: |
+            pip install -r requirements.txt
+        
+        - run: pytest --cov=src
+          env:
+            POSTGRES_USER: weather_user
+            POSTGRES_PASSWORD: weather_password
+            POSTGRES_DB: weather_ingestion
+            POSTGRES_HOST: localhost
+            POSTGRES_PORT: 5432

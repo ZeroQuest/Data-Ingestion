@@ -1,0 +1,26 @@
+defaults:
+  db_url: DATABASE_URL
+  batch_size: 500
+  on_conflict: upsert
+
+sources:
+  - name: noaa_monthly_sample
+    type: csv
+    path: sample_data/small_sample.csv #sample_data/gsom_sample_csv.csv
+    target_table: stg_noaa_monthly
+    pk: [station, date]
+
+    schema:
+      station: str
+      name: str
+      date: datetime
+      prcp: float
+      snow: float
+      tmax: float
+      tmin: float
+      awnd: float
+
+    rules:
+      - prcp >= 0
+      - snow >= 0
+      - tmax >= tmin

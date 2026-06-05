@@ -15,7 +15,7 @@ jobs:
           python-version: "3.12"
       
       - run: |
-        pip install ruff black
+          pip install ruff black
       
       - run: ruff check src tests
       - run: black --check src tests

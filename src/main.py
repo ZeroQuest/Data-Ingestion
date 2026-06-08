@@ -64,7 +64,7 @@ def create_schema(conn, source):
 
 def create_table(conn, source):
     """
-    Creates a table in the database based on the schema in the 
+    Creates a table in the database based on the schema in the
         yaml config
     """
 
@@ -117,7 +117,8 @@ def read_input(source):
         return read_csv(source)
     elif source["type"] == "json":
         return read_json(source)
-        
+
+
 def read_csv(source):
     """
     Reads a .csv file based on the path provided in the config
@@ -125,6 +126,7 @@ def read_csv(source):
     """
     path = os.path.join("..", source["path"])
     return pd.read_csv(path)
+
 
 def read_json(source):
     """
@@ -155,6 +157,7 @@ def read_json(source):
         df[key] = value
 
     return df
+
 
 def normalize_columns(df):
     """
@@ -323,7 +326,7 @@ def drop_duplicates(df, primary_key, source_name):
     """
     Drops rows with duplicate primary key values.
 
-    Note: Current implementation keeps the first instance. 
+    Note: Current implementation keeps the first instance.
     """
 
     mask = df.duplicated(subset=primary_key, keep="first")
@@ -359,7 +362,7 @@ def normalize_for_database(df):
 
 def load_upsert(conn, df, table, primary_key, batch_size):
     """
-    Loads final data into the database via the UPSERT paradigm. 
+    Loads final data into the database via the UPSERT paradigm.
     """
     cols = list(df.columns)
 
@@ -413,11 +416,10 @@ def emit_reject(source_name, reason, row):
         payload[key] = value
     return {"source_name": source_name, "reason": reason, "raw_payload": payload}
 
+
 # Unused Remove before final
 def normalize_for_json(obj):
-    """
-    
-    """
+    """ """
     if isinstance(obj, dict):
         return {key: normalize_for_json(value) for key, value in obj.items()}
 
@@ -431,7 +433,10 @@ def normalize_for_json(obj):
         return obj.item()
 
     return obj
+
+
 # Unused
+
 
 def write_rejects(conn, rejects, batch_size):
     """
@@ -468,17 +473,17 @@ def run_source(connection, source, defaults):
     """
 
     df = read_input(source)
-    #print(df)
+    # print(df)
     df = normalize_columns(df)
-    #print(df)
+    # print(df)
     df, rejects = apply_schema_casts(df, source["schema"], source["name"])
     df = df[list(source["schema"].keys())]
-    #print(df)
+    # print(df)
     df, enforce_required_rejects = enforce_required(df, source["pk"], source["name"])
-    #print(df)
+    # print(df)
     rejects += enforce_required_rejects
     df, rules_rejects = apply_rules(df, source["rules"], source["name"])
-    #print(df)
+    # print(df)
     rejects += rules_rejects
     df, duplicate_rejects = drop_duplicates(df, source["pk"], source["name"])
     rejects += duplicate_rejects

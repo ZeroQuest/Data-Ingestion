@@ -11,8 +11,24 @@ def load_config(path: str):
     Loads the yaml configuration file from the path provided
     Returns the loaded yaml file
     """
-    with open(path, "r", encoding="utf-8") as file:
-        config_yml = yaml.safe_load(file)
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            config_yml = yaml.safe_load(file)
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"Config file not found at path: {path}") from e
+    except PermissionError as e:
+        raise PermissionError(f"No permission to read config file: {path}") from e
+    except yaml.YAMLError as e:
+        raise ValueError(f"Invalid YAML format in config file: {path}") from e
+    
+    if config_yml is None:
+        raise ValueError(f"Config file is empty or invalid: {path}")
+
+    required_keys = ["defaults", "sources"]
+    missing_keys = [key for key in required_keys if key not in config_yml]
+
+    if missing_keys:
+        raise ValueError(f"Config missing required keys: {missing_keys}")
 
     return config_yml
 
@@ -25,14 +41,24 @@ def database_setup(defaults):
     """
 
     db_url = os.getenv("DATABASE_URL")
+    
+    if not db_url:
+        raise ValueError(f"DATABASE_URL env value not set or invalid: {db_url}")
 
-    conn = psycopg.connect(db_url)
+    try:
+        conn = psycopg.connect(db_url)
+    except Exception as e:
+        raise ConnectionError(f"Failed to connect to database.") from e
 
     with conn.cursor() as cur:
 
-        cur.execute("""
-            SELECT version()
-        """)
+        try:
+            cur.execute("""
+                SELECT version()
+            """)
+        except Exception as e:
+            raise RuntimeError("Database connection validation failed during select version()") from e
+
         print(cur.fetchone())
 
     init_sql(conn)
@@ -44,12 +70,17 @@ def init_sql(conn, path="../sql/init.sql"):
     """
     Reads and initializes the sql database from the init.sql file
     """
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            sql = file.read()
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"Missing sql initialization file at: {path}") from e
 
-    with open(path, "r", encoding="utf-8") as file:
-        sql = file.read()
-
-    with conn.cursor() as cur:
-        cur.execute(sql)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+    except Exception as e:
+        raise RuntimeError(f"init.sql execution failed at {path}") from e
 
     conn.commit()
 
@@ -76,19 +107,33 @@ def create_table(conn, source):
         "datetime": "TIMESTAMP",
     }
 
-    schema = source["schema"]
-    table = source["target_table"]
+    try:
+        schema = source["schema"]
+        table = source["target_table"]
+    except KeyError as e:
+        raise ValueError(f"Source missing required keys: schema / target_table") from e
+    
+    if not schema:
+        raise ValueError("Schema cannot be empty")
+
     pk = source.get("pk", [])
 
     with conn.cursor() as cur:
 
         # Build columns
         columns = []
-        for col_name, col_type in schema.items():
-            pg_type = TYPE_MAP[col_type]
-            columns.append(f"{col_name} {pg_type}")
+
+        try:
+            for col_name, col_type in schema.items():
+                pg_type = TYPE_MAP[col_type]
+                columns.append(f"{col_name} {pg_type}")
+        except KeyError as e:
+            raise ValueError(f"Unsupported schema type: {col_type} for column {col_name}") from e
 
         # Primary key
+        if pk and not isinstance(pk, list):
+            raise ValueError("Primary key must be a list")
+
         pk_clause = ""
         if pk:
             pk_clause = f", PRIMARY KEY ({', '.join(pk)})"
@@ -113,10 +158,13 @@ def read_input(source):
     Reads the source input based on the configuration
     Returns a pandas dataframe
     """
-    if source["type"] == "csv":
-        return read_csv(source)
-    elif source["type"] == "json":
-        return read_json(source)
+    try:
+        if source["type"] == "csv":
+            return read_csv(source)
+        elif source["type"] == "json":
+            return read_json(source)
+    except ValueError as e:
+        raise ValueError(f"Unsupported source type {source['type']}") from e
 
 
 def read_csv(source):
@@ -125,7 +173,12 @@ def read_csv(source):
     Returns a pandas dataframe
     """
     path = os.path.join("..", source["path"])
-    return pd.read_csv(path)
+    try:
+        return pd.read_csv(path)
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"CSV file not found at path: {path}") from e
+    except ValueError as e:
+        raise ValueError("Failed to parse CSV") from e
 
 
 def read_json(source):
@@ -136,21 +189,51 @@ def read_json(source):
     path = os.path.join("..", source["path"])
 
     # Load the entire json file
-    with open(path, "r") as file:
-        data = json.load(file)
+    try:
+        with open(path, "r") as file:
+            data = json.load(file)
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"File not found at path: {path}") from e
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON format in file: {path}") from e
+    
 
     # Get the root of a desired nested json based off the config
     root = source.get("json_root")
 
-    # Gather the json metadata
-    metadata = {key: value for key, value in data.items() if key != root}
-
-    # Gather the nested data
     if root:
+        if not isinstance(data, dict):
+            raise ValueError(
+                f"Expected top-level JSON object in {path}, "
+                f"found {type(data).__name__}"
+            )
+        
+        if root not in data:
+            raise KeyError(f"json_root '{root}' not found in JSON file: {path}")
+
+        # Gather the json metadata
+        metadata = {key: value for key, value in data.items() if key != root}
+
+        # Gather the nested data
         data = data[root]
+    else:
+        #Otherwise, metadata is empty
+        metadata = {}
+
+    #Validate extracted root data
+    if not isinstance(data, (list, dict)):
+        raise ValueError(
+            f"JSON data must be a list or object, got "
+            f"{type(data).__name__}"
+        )
+    
 
     # Create a dataframe based on the nested data
-    df = pd.DataFrame(data)
+    try:
+        df = pd.DataFrame(data)
+    except Exception as e:
+        raise ValueError(f"Failed to create DataFrame from JSON data in {path}") from e
+
 
     # Add the metadata to the dataframe
     for key, value in metadata.items():
@@ -188,16 +271,28 @@ def apply_schema_casts(df, schema, source_name):
 
     for col, col_type in schema.items():
 
+        #Config validation
         if col not in df.columns:
-            continue
-            # Raise error later?
+            #Possibly change to a warning log later
+            raise KeyError(f"Schema column missing in dataframe: {col}")
+            
+        try:
+            target_type = PANDAS_TYPE_MAP[col_type]
+        except KeyError as e:
+            raise ValueError(f"Unsupported schema type '{col_type}' for column '{col}'") from e
 
-        target_type = PANDAS_TYPE_MAP[col_type]
 
+        #Type conversion
         if col_type == "datetime":
-            converted = pd.to_datetime(df[col], errors="coerce")
+            try:
+                converted = pd.to_datetime(df[col], errors="coerce")
+            except Exception as e:
+                raise ValueError(f"Failed to convert column '{col}' to datetime") from e
         else:
-            converted = df[col].astype(target_type)
+            try:
+                converted = df[col].astype(target_type)
+            except Exception as e:
+                raise ValueError(f"Failed to cast column {col} to {target_type}") from e
 
         bad_rows = df[converted.isna() & df[col].notna()]
 
@@ -248,6 +343,9 @@ def apply_rules(df, rules, source_name):
     """
     rejects = []
 
+    if not rules:
+        raise ValueError("Rules list is empty")
+
     for rule in rules:
         df, bad_rows = apply_rule(df, rule)
 
@@ -268,7 +366,11 @@ def apply_rule(df, rule):
     Applies a singular rule from the config
     Returns a valid dataframe and a rejects dataframe
     """
-    parsed = parse_rule(rule)
+    try:
+        parsed = parse_rule(rule)
+    except ValueError as e:
+        raise ValueError(f"Invalid rule syntax: {rule}")
+
 
     mask = build_mask(df, parsed)
 
@@ -310,7 +412,12 @@ def build_mask(df, parsed):
     Returns the evaluation of a valid operation or raises a ValueError for an
         unsupported operation.
     """
-    left = df[parsed["left"]]
+
+    try:
+        left = df[parsed["left"]]
+    except KeyError as e:
+        raise KeyError(f"Rule references missing column: {parsed['left']}")
+    
     right = resolve_operand(df, parsed["right"])
     operator = parsed["operator"]
 
@@ -364,7 +471,29 @@ def load_upsert(conn, df, table, primary_key, batch_size):
     """
     Loads final data into the database via the UPSERT paradigm.
     """
+
+    #Config validation
+    if df is None:
+        raise ValueError("Cannot load a None dataframe")
+    
+    if df.empty:
+        return
+    
+    if not primary_key:
+        raise ValueError(f"Primary key required for UPSERT into table '{table}'")
+    
+    if batch_size <= 0:
+        raise ValueError(f"Batch size must be greater than zero, got {batch_size}")
+
     cols = list(df.columns)
+
+    if not cols:
+        raise ValueError(f"No dataframe columns available for table '{table}'")
+    
+    missing_pk = [col for col in primary_key if col not in cols]
+
+    if missing_pk:
+        raise KeyError(f"Primary key columns missing from dataframe: {missing_pk}")
 
     col_sql = ", ".join(cols)
     placeholders = ", ".join(["%s"] * len(cols))
@@ -386,18 +515,24 @@ def load_upsert(conn, df, table, primary_key, batch_size):
 
     batch = []
 
-    with conn.cursor() as cur:
-        for row in rows:
-            batch.append(row)
+    try:
+        with conn.cursor() as cur:
+            for row in rows:
+                batch.append(row)
 
-            if len(batch) >= batch_size:
+                if len(batch) >= batch_size:
+                    cur.executemany(sql, batch)
+                    batch.clear()
+
+            if batch:
                 cur.executemany(sql, batch)
-                batch.clear()
+    except Exception as e:
+        raise RuntimeError(f"Failed loading data into table '{table}'") from e
 
-        if batch:
-            cur.executemany(sql, batch)
-
-    conn.commit()
+    try:
+        conn.commit()
+    except Exception as e:
+        raise RuntimeError(f"Failed committing transaction for table '{table}'")
 
 
 def emit_reject(source_name, reason, row):
@@ -434,10 +569,6 @@ def normalize_for_json(obj):
 
     return obj
 
-
-# Unused
-
-
 def write_rejects(conn, rejects, batch_size):
     """
     Writes all rejected rows into the stg_rejects table in the database.
@@ -449,22 +580,34 @@ def write_rejects(conn, rejects, batch_size):
         INSERT INTO stg_rejects (source_name, raw_payload, reason)
         VALUES (%s, %s, %s)
     """
+    try:
+        with conn.cursor() as cur:
 
-    with conn.cursor() as cur:
+            for i in range(0, len(rejects), batch_size):
+                batch = rejects[i : i + batch_size]
+                
+                try:
+                    params = [
+                        (
+                            reject["source_name"],
+                            json.dumps(reject["raw_payload"]),
+                            reject["reason"],
+                        )
+                        for reject in batch
+                    ]
+                except KeyError as e:
+                    raise ValueError(f"Malformed reject record missing required key: {e}") from e
+                except TypeError as e:
+                    raise RuntimeError("Failed writing rejects to stg_regets") from e
 
-        for i in range(0, len(rejects), batch_size):
-            batch = rejects[i : i + batch_size]
-            params = [
-                (
-                    reject["source_name"],
-                    json.dumps(reject["raw_payload"]),
-                    reject["reason"],
-                )
-                for reject in batch
-            ]
+                cur.executemany(sql, params)
+    except Exception as e:
+        raise RuntimeError("Failed writing rejects to stg_rejects") from e
 
-            cur.executemany(sql, params)
-    conn.commit()
+    try:    
+        conn.commit()
+    except Exception as e:
+        raise RuntimeError("Failed committing reject records") from e
 
 
 def run_source(connection, source, defaults):

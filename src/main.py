@@ -4,7 +4,30 @@ from dotenv import load_dotenv
 import yaml
 import json
 import pandas as pd
+import logging
 
+logger = logging.getLogger(__name__)
+
+def configure_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+        handlers=[
+            logging.FileHandler("../etl.log"),
+            logging.StreamHandler()
+        ]
+    )
+
+def log_source_start(source_name):
+    logger.info("Starting source '%s'", source_name)
+
+def log_source_complete(source_name, rows_loaded, rejects):
+    logger.info(
+        "Completed source '%s' (rows_loaded=%s rejects=%s)", 
+        source_name,
+        rows_loaded,
+        rejects
+    )
 
 def load_config(path: str):
     """
@@ -29,6 +52,8 @@ def load_config(path: str):
 
     if missing_keys:
         raise ValueError(f"Config missing required keys: {missing_keys}")
+
+    logger.info(f"Yaml config loaded at path: {path}")
 
     return config_yml
 
@@ -59,7 +84,7 @@ def database_setup(defaults):
         except Exception as e:
             raise RuntimeError("Database connection validation failed during select version()") from e
 
-        print(cur.fetchone())
+        logger.info(f"Database connection established with version: {cur.fetchone()}")
 
     init_sql(conn)
 
@@ -81,6 +106,8 @@ def init_sql(conn, path="../sql/init.sql"):
             cur.execute(sql)
     except Exception as e:
         raise RuntimeError(f"init.sql execution failed at {path}") from e
+
+    logger.info(f"Database initialized from file at: {path}")
 
     conn.commit()
 
@@ -174,6 +201,7 @@ def read_csv(source):
     """
     path = os.path.join("..", source["path"])
     try:
+        logger.info(f"CSV file read from: {path}")
         return pd.read_csv(path)
     except FileNotFoundError as e:
         raise FileNotFoundError(f"CSV file not found at path: {path}") from e
@@ -226,7 +254,6 @@ def read_json(source):
             f"JSON data must be a list or object, got "
             f"{type(data).__name__}"
         )
-    
 
     # Create a dataframe based on the nested data
     try:
@@ -234,11 +261,11 @@ def read_json(source):
     except Exception as e:
         raise ValueError(f"Failed to create DataFrame from JSON data in {path}") from e
 
-
     # Add the metadata to the dataframe
     for key, value in metadata.items():
         df[key] = value
 
+    logger.info(f"JSON file read from: {path}")
     return df
 
 
@@ -246,9 +273,12 @@ def normalize_columns(df):
     """
     Normalizes the data for entry into sql
     """
+    df = df.copy()
+    original_data = df.columns.tolist()
     df.columns = df.columns.str.strip()
     df.columns = df.columns.str.lower()
     df.columns = df.columns.str.replace(" ", "_")
+    logger.info(f"Normalized columns: {original_data} to: {df.columns.tolist()}")
 
     return df
 
@@ -435,8 +465,11 @@ def drop_duplicates(df, primary_key, source_name):
 
     Note: Current implementation keeps the first instance.
     """
+    num_before = len(df)
 
     mask = df.duplicated(subset=primary_key, keep="first")
+    num_after = len(mask)
+    removed_rows = num_before - num_after
 
     bad_rows = df[mask]
     records = bad_rows.to_dict("records")
@@ -446,6 +479,9 @@ def drop_duplicates(df, primary_key, source_name):
         emit_reject(source_name, reason="duplicate_primary_key", row=record)
         for record in records
     ]
+    
+    if removed_rows > 0:
+        logger.info(f"Removed {removed_rows} duplicate rows.")
 
     valid = df[~mask].copy()
     valid = valid.reset_index(drop=True)
@@ -531,6 +567,7 @@ def load_upsert(conn, df, table, primary_key, batch_size):
 
     try:
         conn.commit()
+        logger.info(f"Loaded {len(df)} rows to {table}")
     except Exception as e:
         raise RuntimeError(f"Failed committing transaction for table '{table}'")
 
@@ -606,6 +643,7 @@ def write_rejects(conn, rejects, batch_size):
 
     try:    
         conn.commit()
+        logger.info(f"Wrote {len(rejects)} to stg_rejects.")
     except Exception as e:
         raise RuntimeError("Failed committing reject records") from e
 
@@ -614,24 +652,17 @@ def run_source(connection, source, defaults):
     """
     Runs the ETL pipeline for a given source.
     """
-
+    log_source_start(str(source["name"]))
     df = read_input(source)
-    # print(df)
     df = normalize_columns(df)
-    # print(df)
     df, rejects = apply_schema_casts(df, source["schema"], source["name"])
     df = df[list(source["schema"].keys())]
-    # print(df)
     df, enforce_required_rejects = enforce_required(df, source["pk"], source["name"])
-    # print(df)
     rejects += enforce_required_rejects
     df, rules_rejects = apply_rules(df, source["rules"], source["name"])
-    # print(df)
     rejects += rules_rejects
     df, duplicate_rejects = drop_duplicates(df, source["pk"], source["name"])
     rejects += duplicate_rejects
-    # print(df[df.duplicated(subset=source["pk"], keep=False)])
-    # print(df)
     df = normalize_for_database(df)
     load_upsert(
         connection,
@@ -641,6 +672,7 @@ def run_source(connection, source, defaults):
         batch_size=defaults["batch_size"],
     )
     write_rejects(connection, rejects, defaults["batch_size"])
+    log_source_complete(str(source), len(df), len(rejects))
 
 
 def main():
@@ -652,7 +684,7 @@ def main():
     defaults = config["defaults"]
     sources = config["sources"]
 
-    # print(config["sources"])
+    configure_logging()
 
     connection = database_setup(defaults)
 

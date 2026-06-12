@@ -12,7 +12,6 @@ greenlet==3.5.1
 identify==2.6.19
 idna==3.16
 iniconfig==2.3.0
-lxml==6.1.0
 mypy_extensions==1.1.0
 nodeenv==1.10.0
 numpy==2.4.4
@@ -24,7 +23,6 @@ pluggy==1.6.0
 pre_commit==4.6.0
 psycopg==3.3.4
 psycopg-binary==3.3.4
-pydantic==2.13.4
 pydantic_core==2.46.4
 Pygments==2.20.0
 pytest==9.0.3
@@ -34,12 +32,9 @@ python-discovery==1.4.0
 python-dotenv==1.2.2
 pytokens==0.4.1
 PyYAML==6.0.3
-requests==2.34.2
 ruff==0.15.14
 six==1.17.0
-SQLAlchemy==2.0.50
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2026.2
 urllib3==2.7.0
-virtualenv==21.4.1

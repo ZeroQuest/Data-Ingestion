@@ -24,3 +24,41 @@ sources:
       - prcp >= 0
       - snow >= 0
       - tmax >= tmin
+
+  - name: open_meteo_sample
+    type: json
+    json_root: hourly
+    path: sample_data/open_meteo_sample.json
+    target_table: stg_open_meteo
+    pk: [latitude, longitude, time]
+
+    schema:
+      latitude: float
+      longitude: float
+      time:  datetime
+
+      temperature_2m: float
+      apparent_temperature: float
+
+      precipitation: float
+      snowfall: float
+
+      wind_speed_10m: float
+      wind_gusts_10m: float
+
+      relative_humidity_2m: float
+      cloud_cover: float
+      pressure_msl: float
+
+    rules:
+      - latitude >= -90
+      - latitude <= 90
+      - longitude >= -180
+      - longitude <= 180
+
+      - precipitation >= 0
+      - snowfall >= 0
+
+      - wind_speed_10m >= 0
+      - wind_gusts_10m >= 0
+

@@ -7,7 +7,10 @@ import pandas as pd
 
 
 def load_config(path: str):
-
+    """
+    Loads the yaml configuration file from the path provided
+    Returns the loaded yaml file
+    """
     with open(path, "r", encoding="utf-8") as file:
         config_yml = yaml.safe_load(file)
 
@@ -15,6 +18,11 @@ def load_config(path: str):
 
 
 def database_setup(defaults):
+    """
+    Starts the database connection based on the url provided
+        in defaults section in the config
+    Returns the connection
+    """
 
     db_url = os.getenv("DATABASE_URL")
 
@@ -33,6 +41,9 @@ def database_setup(defaults):
 
 
 def init_sql(conn, path="../sql/init.sql"):
+    """
+    Reads and initializes the sql database from the init.sql file
+    """
 
     with open(path, "r", encoding="utf-8") as file:
         sql = file.read()
@@ -44,11 +55,20 @@ def init_sql(conn, path="../sql/init.sql"):
 
 
 def create_schema(conn, source):
+    """
+    Wraps the create table functionality to provide a
+        named schema function for pipeline readability
+    """
     create_table(conn, source)
 
 
 def create_table(conn, source):
+    """
+    Creates a table in the database based on the schema in the
+        yaml config
+    """
 
+    # Map for mapping python data types to SQL data types
     TYPE_MAP = {
         "int": "INTEGER",
         "float": "DOUBLE PRECISION",
@@ -89,14 +109,60 @@ def create_table(conn, source):
 
 
 def read_input(source):
-    # print(source)
-
+    """
+    Reads the source input based on the configuration
+    Returns a pandas dataframe
+    """
     if source["type"] == "csv":
-        path = os.path.join("..", source["path"])
-        return pd.read_csv(path)
+        return read_csv(source)
+    elif source["type"] == "json":
+        return read_json(source)
+
+
+def read_csv(source):
+    """
+    Reads a .csv file based on the path provided in the config
+    Returns a pandas dataframe
+    """
+    path = os.path.join("..", source["path"])
+    return pd.read_csv(path)
+
+
+def read_json(source):
+    """
+    Reads a .json file based on the path provided in the config
+    Returns a pandas dataframe
+    """
+    path = os.path.join("..", source["path"])
+
+    # Load the entire json file
+    with open(path, "r") as file:
+        data = json.load(file)
+
+    # Get the root of a desired nested json based off the config
+    root = source.get("json_root")
+
+    # Gather the json metadata
+    metadata = {key: value for key, value in data.items() if key != root}
+
+    # Gather the nested data
+    if root:
+        data = data[root]
+
+    # Create a dataframe based on the nested data
+    df = pd.DataFrame(data)
+
+    # Add the metadata to the dataframe
+    for key, value in metadata.items():
+        df[key] = value
+
+    return df
 
 
 def normalize_columns(df):
+    """
+    Normalizes the data for entry into sql
+    """
     df.columns = df.columns.str.strip()
     df.columns = df.columns.str.lower()
     df.columns = df.columns.str.replace(" ", "_")
@@ -105,8 +171,13 @@ def normalize_columns(df):
 
 
 def apply_schema_casts(df, schema, source_name):
+    """
+    Applies the schema type casting from yaml to pandas data types
+    Returns the rejects dataframe and the casted dataframe
+    """
 
-    PY_TYPE_MAP = {
+    # Maps yaml data types to pandas data types
+    PANDAS_TYPE_MAP = {
         "int": "Int64",
         "float": "float64",
         "str": "string",
@@ -121,7 +192,7 @@ def apply_schema_casts(df, schema, source_name):
             continue
             # Raise error later?
 
-        target_type = PY_TYPE_MAP[col_type]
+        target_type = PANDAS_TYPE_MAP[col_type]
 
         if col_type == "datetime":
             converted = pd.to_datetime(df[col], errors="coerce")
@@ -145,6 +216,11 @@ def apply_schema_casts(df, schema, source_name):
 
 
 def enforce_required(df, primary_key, source_name):
+    """
+    Checks rows to ensure they have primary key data,
+        otherwise reject those rows to a rejects dataframe
+    Returns the reject dataframe and the valid dataframe
+    """
     rejects = []
 
     reject_mask = df[primary_key].isna().any(axis=1)
@@ -166,6 +242,10 @@ def enforce_required(df, primary_key, source_name):
 
 
 def apply_rules(df, rules, source_name):
+    """
+    Applies the rules defined in the yaml config
+    Returns a rejects dataframe and the valid dataframe
+    """
     rejects = []
 
     for rule in rules:
@@ -184,6 +264,10 @@ def apply_rules(df, rules, source_name):
 
 
 def apply_rule(df, rule):
+    """
+    Applies a singular rule from the config
+    Returns a valid dataframe and a rejects dataframe
+    """
     parsed = parse_rule(rule)
 
     mask = build_mask(df, parsed)
@@ -195,12 +279,24 @@ def apply_rule(df, rule):
 
 
 def parse_rule(rule: str):
-    left, operand, right = rule.split()
+    """
+    Parses a rule from the config
+    Returns the left element, the operator, and the right element
 
-    return {"left": left, "operand": operand, "right": right}
+    Note: Serves as a small baseline for AST style solutions
+    """
+    left, operator, right = rule.split()
+
+    return {"left": left, "operator": operator, "right": right}
 
 
 def resolve_operand(df, operand: str):
+    """
+    Resolve the right hand operand of a comparison expression.
+
+    If the operand can be parsed as a number, return it as a float.
+    Otherwise, return it as a dataframe column name and return the corresponding pandas series.
+    """
     try:
         return float(operand)
     except ValueError:
@@ -208,23 +304,37 @@ def resolve_operand(df, operand: str):
 
 
 def build_mask(df, parsed):
+    """
+    Builds a mask that filters valid operations.
+
+    Returns the evaluation of a valid operation or raises a ValueError for an
+        unsupported operation.
+    """
     left = df[parsed["left"]]
     right = resolve_operand(df, parsed["right"])
-    operand = parsed["operand"]
+    operator = parsed["operator"]
 
-    if operand == ">=":
+    if operator == ">=":
         return left >= right
+    elif operator == "<=":
+        return left <= right
     else:
-        raise ValueError(f"Unsupported operator: {operand}")
+        raise ValueError(f"Unsupported operator: {operator}")
 
 
 def drop_duplicates(df, primary_key, source_name):
+    """
+    Drops rows with duplicate primary key values.
+
+    Note: Current implementation keeps the first instance.
+    """
 
     mask = df.duplicated(subset=primary_key, keep="first")
 
     bad_rows = df[mask]
     records = bad_rows.to_dict("records")
 
+    # For every duplicate, call emit_reject() with the reason "duplicate_primary_key"
     rejects = [
         emit_reject(source_name, reason="duplicate_primary_key", row=record)
         for record in records
@@ -237,6 +347,9 @@ def drop_duplicates(df, primary_key, source_name):
 
 
 def normalize_for_database(df):
+    """
+    Normalize pandas datatypes into Postgres compatible datatypes.
+    """
 
     df = df.replace({pd.NA: None})
 
@@ -248,6 +361,9 @@ def normalize_for_database(df):
 
 
 def load_upsert(conn, df, table, primary_key, batch_size):
+    """
+    Loads final data into the database via the UPSERT paradigm.
+    """
     cols = list(df.columns)
 
     col_sql = ", ".join(cols)
@@ -285,6 +401,10 @@ def load_upsert(conn, df, table, primary_key, batch_size):
 
 
 def emit_reject(source_name, reason, row):
+    """
+    Emits a rejected row based on the source and reason
+    Returns the rejected row enriched with source and reason
+    """
     payload = {}
 
     for key, value in row.items():
@@ -297,7 +417,9 @@ def emit_reject(source_name, reason, row):
     return {"source_name": source_name, "reason": reason, "raw_payload": payload}
 
 
+# Unused Remove before final
 def normalize_for_json(obj):
+    """ """
     if isinstance(obj, dict):
         return {key: normalize_for_json(value) for key, value in obj.items()}
 
@@ -313,8 +435,13 @@ def normalize_for_json(obj):
     return obj
 
 
-def write_rejects(conn, rejects, batch_size):
+# Unused
 
+
+def write_rejects(conn, rejects, batch_size):
+    """
+    Writes all rejected rows into the stg_rejects table in the database.
+    """
     if not rejects:
         return
 
@@ -341,11 +468,16 @@ def write_rejects(conn, rejects, batch_size):
 
 
 def run_source(connection, source, defaults):
+    """
+    Runs the ETL pipeline for a given source.
+    """
+
     df = read_input(source)
     # print(df)
     df = normalize_columns(df)
     # print(df)
     df, rejects = apply_schema_casts(df, source["schema"], source["name"])
+    df = df[list(source["schema"].keys())]
     # print(df)
     df, enforce_required_rejects = enforce_required(df, source["pk"], source["name"])
     # print(df)

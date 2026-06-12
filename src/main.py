@@ -8,26 +8,27 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def configure_logging():
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s - %(message)s",
-        handlers=[
-            logging.FileHandler("../etl.log"),
-            logging.StreamHandler()
-        ]
+        handlers=[logging.FileHandler("../etl.log"), logging.StreamHandler()],
     )
+
 
 def log_source_start(source_name):
     logger.info("Starting source '%s'", source_name)
 
+
 def log_source_complete(source_name, rows_loaded, rejects):
     logger.info(
-        "Completed source '%s' (rows_loaded=%s rejects=%s)", 
+        "Completed source '%s' (rows_loaded=%s rejects=%s)",
         source_name,
         rows_loaded,
-        rejects
+        rejects,
     )
+
 
 def load_config(path: str):
     """
@@ -43,7 +44,7 @@ def load_config(path: str):
         raise PermissionError(f"No permission to read config file: {path}") from e
     except yaml.YAMLError as e:
         raise ValueError(f"Invalid YAML format in config file: {path}") from e
-    
+
     if config_yml is None:
         raise ValueError(f"Config file is empty or invalid: {path}")
 
@@ -66,14 +67,14 @@ def database_setup(defaults):
     """
 
     db_url = os.getenv("DATABASE_URL")
-    
+
     if not db_url:
         raise ValueError(f"DATABASE_URL env value not set or invalid: {db_url}")
 
     try:
         conn = psycopg.connect(db_url)
     except Exception as e:
-        raise ConnectionError(f"Failed to connect to database.") from e
+        raise ConnectionError("Failed to connect to database.") from e
 
     with conn.cursor() as cur:
 
@@ -82,7 +83,9 @@ def database_setup(defaults):
                 SELECT version()
             """)
         except Exception as e:
-            raise RuntimeError("Database connection validation failed during select version()") from e
+            raise RuntimeError(
+                "Database connection validation failed during select version()"
+            ) from e
 
         logger.info(f"Database connection established with version: {cur.fetchone()}")
 
@@ -138,8 +141,8 @@ def create_table(conn, source):
         schema = source["schema"]
         table = source["target_table"]
     except KeyError as e:
-        raise ValueError(f"Source missing required keys: schema / target_table") from e
-    
+        raise ValueError("Source missing required keys: schema / target_table") from e
+
     if not schema:
         raise ValueError("Schema cannot be empty")
 
@@ -155,7 +158,9 @@ def create_table(conn, source):
                 pg_type = TYPE_MAP[col_type]
                 columns.append(f"{col_name} {pg_type}")
         except KeyError as e:
-            raise ValueError(f"Unsupported schema type: {col_type} for column {col_name}") from e
+            raise ValueError(
+                f"Unsupported schema type: {col_type} for column {col_name}"
+            ) from e
 
         # Primary key
         if pk and not isinstance(pk, list):
@@ -224,7 +229,6 @@ def read_json(source):
         raise FileNotFoundError(f"File not found at path: {path}") from e
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON format in file: {path}") from e
-    
 
     # Get the root of a desired nested json based off the config
     root = source.get("json_root")
@@ -235,7 +239,7 @@ def read_json(source):
                 f"Expected top-level JSON object in {path}, "
                 f"found {type(data).__name__}"
             )
-        
+
         if root not in data:
             raise KeyError(f"json_root '{root}' not found in JSON file: {path}")
 
@@ -245,14 +249,13 @@ def read_json(source):
         # Gather the nested data
         data = data[root]
     else:
-        #Otherwise, metadata is empty
+        # Otherwise, metadata is empty
         metadata = {}
 
-    #Validate extracted root data
+    # Validate extracted root data
     if not isinstance(data, (list, dict)):
         raise ValueError(
-            f"JSON data must be a list or object, got "
-            f"{type(data).__name__}"
+            f"JSON data must be a list or object, got " f"{type(data).__name__}"
         )
 
     # Create a dataframe based on the nested data
@@ -301,18 +304,19 @@ def apply_schema_casts(df, schema, source_name):
 
     for col, col_type in schema.items():
 
-        #Config validation
+        # Config validation
         if col not in df.columns:
-            #Possibly change to a warning log later
+            # Possibly change to a warning log later
             raise KeyError(f"Schema column missing in dataframe: {col}")
-            
+
         try:
             target_type = PANDAS_TYPE_MAP[col_type]
         except KeyError as e:
-            raise ValueError(f"Unsupported schema type '{col_type}' for column '{col}'") from e
+            raise ValueError(
+                f"Unsupported schema type '{col_type}' for column '{col}'"
+            ) from e
 
-
-        #Type conversion
+        # Type conversion
         if col_type == "datetime":
             try:
                 converted = pd.to_datetime(df[col], errors="coerce")
@@ -399,8 +403,7 @@ def apply_rule(df, rule):
     try:
         parsed = parse_rule(rule)
     except ValueError as e:
-        raise ValueError(f"Invalid rule syntax: {rule}")
-
+        raise ValueError(f"Invalid rule syntax: {rule}") from e
 
     mask = build_mask(df, parsed)
 
@@ -446,8 +449,8 @@ def build_mask(df, parsed):
     try:
         left = df[parsed["left"]]
     except KeyError as e:
-        raise KeyError(f"Rule references missing column: {parsed['left']}")
-    
+        raise KeyError(f"Rule references missing column: {parsed['left']}") from e
+
     right = resolve_operand(df, parsed["right"])
     operator = parsed["operator"]
 
@@ -479,7 +482,7 @@ def drop_duplicates(df, primary_key, source_name):
         emit_reject(source_name, reason="duplicate_primary_key", row=record)
         for record in records
     ]
-    
+
     if removed_rows > 0:
         logger.info(f"Removed {removed_rows} duplicate rows.")
 
@@ -508,16 +511,16 @@ def load_upsert(conn, df, table, primary_key, batch_size):
     Loads final data into the database via the UPSERT paradigm.
     """
 
-    #Config validation
+    # Config validation
     if df is None:
         raise ValueError("Cannot load a None dataframe")
-    
+
     if df.empty:
         return
-    
+
     if not primary_key:
         raise ValueError(f"Primary key required for UPSERT into table '{table}'")
-    
+
     if batch_size <= 0:
         raise ValueError(f"Batch size must be greater than zero, got {batch_size}")
 
@@ -525,7 +528,7 @@ def load_upsert(conn, df, table, primary_key, batch_size):
 
     if not cols:
         raise ValueError(f"No dataframe columns available for table '{table}'")
-    
+
     missing_pk = [col for col in primary_key if col not in cols]
 
     if missing_pk:
@@ -569,7 +572,7 @@ def load_upsert(conn, df, table, primary_key, batch_size):
         conn.commit()
         logger.info(f"Loaded {len(df)} rows to {table}")
     except Exception as e:
-        raise RuntimeError(f"Failed committing transaction for table '{table}'")
+        raise RuntimeError(f"Failed committing transaction for table '{table}'") from e
 
 
 def emit_reject(source_name, reason, row):
@@ -590,21 +593,22 @@ def emit_reject(source_name, reason, row):
 
 
 # Unused Remove before final
-def normalize_for_json(obj):
-    """ """
-    if isinstance(obj, dict):
-        return {key: normalize_for_json(value) for key, value in obj.items()}
+# def normalize_for_json(obj):
+#    """ """
+#    if isinstance(obj, dict):
+#        return {key: normalize_for_json(value) for key, value in obj.items()}
+#
+#    if isinstance(obj, list):
+#        return [normalize_for_json(value) for value in obj]
+#
+#    if isinstance(obj, pd.Timestamp):
+#        return obj.isoformat()
+#
+#    if hasattr(obj, "item"):
+#        return obj.item()
+#
+#    return obj
 
-    if isinstance(obj, list):
-        return [normalize_for_json(value) for value in obj]
-
-    if isinstance(obj, pd.Timestamp):
-        return obj.isoformat()
-
-    if hasattr(obj, "item"):
-        return obj.item()
-
-    return obj
 
 def write_rejects(conn, rejects, batch_size):
     """
@@ -622,7 +626,7 @@ def write_rejects(conn, rejects, batch_size):
 
             for i in range(0, len(rejects), batch_size):
                 batch = rejects[i : i + batch_size]
-                
+
                 try:
                     params = [
                         (
@@ -633,7 +637,9 @@ def write_rejects(conn, rejects, batch_size):
                         for reject in batch
                     ]
                 except KeyError as e:
-                    raise ValueError(f"Malformed reject record missing required key: {e}") from e
+                    raise ValueError(
+                        f"Malformed reject record missing required key: {e}"
+                    ) from e
                 except TypeError as e:
                     raise RuntimeError("Failed writing rejects to stg_regets") from e
 
@@ -641,7 +647,7 @@ def write_rejects(conn, rejects, batch_size):
     except Exception as e:
         raise RuntimeError("Failed writing rejects to stg_rejects") from e
 
-    try:    
+    try:
         conn.commit()
         logger.info(f"Wrote {len(rejects)} to stg_rejects.")
     except Exception as e:

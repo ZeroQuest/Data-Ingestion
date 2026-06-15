@@ -10,13 +10,13 @@ def read_input(source):
     Reads the source input based on the configuration
     Returns a pandas dataframe
     """
-    try:
-        if source["type"] == "csv":
-            return read_csv(source)
-        elif source["type"] == "json":
-            return read_json(source)
-    except ValueError as e:
-        raise ValueError(f"Unsupported source type {source['type']}") from e
+
+    if source["type"] == "csv":
+        return read_csv(source)
+    elif source["type"] == "json":
+        return read_json(source)
+    else:
+        raise ValueError(f"Unsupported source type {source['type']}")
 
 
 def read_csv(source):
@@ -25,13 +25,14 @@ def read_csv(source):
     Returns a pandas dataframe
     """
     path = os.path.join("..", source["path"])
+    logger.info(f"CSV file read from: {path}")
+
     try:
-        logger.info(f"CSV file read from: {path}")
         return pd.read_csv(path)
     except FileNotFoundError as e:
         raise FileNotFoundError(f"CSV file not found at path: {path}") from e
     except ValueError as e:
-        raise ValueError("Failed to parse CSV") from e
+        raise ValueError(f"Failed to parse CSV at path: {path}") from e
 
 
 def read_json(source):

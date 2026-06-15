@@ -108,6 +108,8 @@ def write_rejects(conn, rejects, batch_size):
 
                 cur.executemany(sql, params)
     except Exception as e:
+        if isinstance(e, ValueError):
+            raise
         raise RuntimeError("Failed writing rejects to stg_rejects") from e
 
     try:

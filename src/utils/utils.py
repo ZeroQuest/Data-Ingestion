@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 def emit_reject(source_name, reason, row):
     """
     Emits a rejected row based on the source and reason

@@ -3,6 +3,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def normalize_columns(df):
     """
     Normalizes the data for entry into sql
@@ -15,6 +16,7 @@ def normalize_columns(df):
     logger.info(f"Normalized columns: {original_data} to: {df.columns.tolist()}")
 
     return df
+
 
 def normalize_for_database(df):
     """

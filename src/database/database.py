@@ -4,6 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def database_setup(defaults):
     """
     Starts the database connection based on the url provided

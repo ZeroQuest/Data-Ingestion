@@ -4,6 +4,7 @@ from utils.utils import emit_reject
 
 logger = logging.getLogger(__name__)
 
+
 def apply_schema_casts(df, schema, source_name):
     """
     Applies the schema type casting from yaml to pandas data types

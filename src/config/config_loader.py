@@ -3,6 +3,7 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+
 def load_config(path: str):
     """
     Loads the yaml configuration file from the path provided

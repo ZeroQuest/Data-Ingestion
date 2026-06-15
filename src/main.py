@@ -7,10 +7,10 @@ from readers.readers import read_input
 from cleaners.cleaners import normalize_columns, normalize_for_database
 
 from validators.validators import (
-    apply_schema_casts, 
-    apply_rules, 
-    enforce_required, 
-    drop_duplicates
+    apply_schema_casts,
+    apply_rules,
+    enforce_required,
+    drop_duplicates,
 )
 
 from loaders.loaders import load_upsert, write_rejects
@@ -18,8 +18,9 @@ from loaders.loaders import load_upsert, write_rejects
 from loggers.logging_config import (
     configure_logging,
     log_source_start,
-    log_source_complete
+    log_source_complete,
 )
+
 
 def run_source(connection, source, defaults):
     """

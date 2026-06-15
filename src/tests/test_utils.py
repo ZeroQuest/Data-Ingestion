@@ -1,9 +1,7 @@
 import pandas as pd
-import pytest
 
-from utils.utils import (
-    emit_reject
-)
+from utils.utils import emit_reject
+
 
 def test_emit_reject_basic_row():
     row = {"a": 1, "b": "x"}
@@ -14,6 +12,7 @@ def test_emit_reject_basic_row():
     assert result["reason"] == "bad_row"
     assert result["raw_payload"] == {"a": 1, "b": "x"}
 
+
 def test_emit_reject_handles_timestamp():
     ts = pd.Timestamp("2026-01-01 12:00:00")
 
@@ -23,12 +22,14 @@ def test_emit_reject_handles_timestamp():
 
     assert result["raw_payload"]["time"] == ts.isoformat()
 
+
 def test_emit_reject_handles_nan_as_none():
     row = {"value": float("nan")}
 
     result = emit_reject("source1", "nan_test", row)
 
     assert result["raw_payload"]["value"] is None
+
 
 def test_emit_reject_handles_pdna_as_none():
     row = {"value": pd.NA}
@@ -37,15 +38,11 @@ def test_emit_reject_handles_pdna_as_none():
 
     assert result["raw_payload"]["value"] is None
 
+
 def test_emit_reject_mixed_row():
     ts = pd.Timestamp("2026-01-01 00:00:00")
 
-    row = {
-        "id": 1,
-        "time": ts,
-        "missing": pd.NA,
-        "value": 10.5
-    }
+    row = {"id": 1, "time": ts, "missing": pd.NA, "value": 10.5}
 
     result = emit_reject("sensor", "mixed", row)
 
@@ -58,6 +55,7 @@ def test_emit_reject_mixed_row():
         "missing": None,
         "value": 10.5,
     }
+
 
 def test_emit_reject_no_mutation():
     ts = pd.Timestamp("2026-01-01")

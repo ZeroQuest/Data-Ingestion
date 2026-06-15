@@ -5,6 +5,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+
 def read_input(source):
     """
     Reads the source input based on the configuration

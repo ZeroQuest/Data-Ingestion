@@ -9,8 +9,9 @@ from validators.validators import (
     resolve_operand,
     parse_rule,
     build_mask,
-    drop_duplicates
+    drop_duplicates,
 )
+
 
 def test_apply_schema_casts_float():
     df = pd.DataFrame({"prcp": ["1.5", "2.0"]})
@@ -22,6 +23,7 @@ def test_apply_schema_casts_float():
     assert result["prcp"].dtype == "float64"
     assert len(rejects) == 0
 
+
 def test_apply_schema_casts_datetime():
     df = pd.DataFrame({"date": ["2024-01-01"]})
 
@@ -32,6 +34,7 @@ def test_apply_schema_casts_datetime():
     assert pd.api.types.is_datetime64_any_dtype(result["date"])
     assert len(rejects) == 0
 
+
 def test_apply_schema_casts_missing_column():
     df = pd.DataFrame({"station": ["ABC"]})
 
@@ -39,7 +42,8 @@ def test_apply_schema_casts_missing_column():
 
     with pytest.raises(KeyError):
         apply_schema_casts(df, schema, "test_source")
-    
+
+
 def test_apply_schema_casts_invalid_type():
     df = pd.DataFrame({"station": ["ABC"]})
 
@@ -47,6 +51,7 @@ def test_apply_schema_casts_invalid_type():
 
     with pytest.raises(ValueError):
         apply_schema_casts(df, schema, "test_source")
+
 
 def test_enforce_required_valid():
     df = pd.DataFrame({"station": ["ABC"]})
@@ -56,13 +61,15 @@ def test_enforce_required_valid():
     assert len(valid) == 1
     assert len(rejects) == 0
 
+
 def test_enforce_required_missing_pk():
     df = pd.DataFrame({"station": [None]})
 
-    valid, rejects = enforce_required( df, ["station"], "test_source")
+    valid, rejects = enforce_required(df, ["station"], "test_source")
 
     assert len(valid) == 0
     assert len(rejects) == 1
+
 
 def test_parse_rule():
     result = parse_rule("prcp >= 0")
@@ -73,6 +80,7 @@ def test_parse_rule():
         "right": "0",
     }
 
+
 def test_resolve_operand_numberic():
     df = pd.DataFrame()
 
@@ -80,12 +88,14 @@ def test_resolve_operand_numberic():
 
     assert result == 5.0
 
+
 def test_resolve_operand_column():
     df = pd.DataFrame({"tmax": [1, 2, 3]})
 
     result = resolve_operand(df, "tmax")
 
     assert result.equals(df["tmax"])
+
 
 def test_build_mask_greater_equal():
     df = pd.DataFrame({"prcp": [1, -1, 2]})
@@ -95,13 +105,18 @@ def test_build_mask_greater_equal():
         "operator": ">=",
         "right": "0",
     }
-    
+
     mask = build_mask(df, parsed)
 
     assert mask.tolist() == [True, False, True]
 
+
 def test_build_mask_less_equal():
-    df = pd.DataFrame({"prcp": [1, 2, 3],})
+    df = pd.DataFrame(
+        {
+            "prcp": [1, 2, 3],
+        }
+    )
 
     parsed = {
         "left": "prcp",
@@ -112,6 +127,7 @@ def test_build_mask_less_equal():
     mask = build_mask(df, parsed)
 
     assert mask.tolist() == [True, True, False]
+
 
 def test_build_mask_invalid_operator():
     df = pd.DataFrame({"prcp": [1]})
@@ -125,6 +141,7 @@ def test_build_mask_invalid_operator():
     with pytest.raises(ValueError):
         build_mask(df, parsed)
 
+
 def test_apply_rule():
     df = pd.DataFrame({"prcp": [1, -1]})
 
@@ -132,6 +149,7 @@ def test_apply_rule():
 
     assert len(valid) == 1
     assert len(rejects) == 1
+
 
 def test_apply_rules():
     df = pd.DataFrame({"prcp": [1, -1]})
@@ -141,6 +159,7 @@ def test_apply_rules():
     assert len(valid) == 1
     assert len(rejects) == 1
 
+
 def test_drop_duplicates():
     df = pd.DataFrame({"station": ["A", "A"]})
 
@@ -148,6 +167,7 @@ def test_drop_duplicates():
 
     assert len(valid) == 1
     assert len(rejects) == 1
+
 
 def test_drop_duplicates_no_duplicates():
     df = pd.DataFrame({"station": ["A", "B"]})

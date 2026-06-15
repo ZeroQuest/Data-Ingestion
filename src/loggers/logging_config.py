@@ -2,6 +2,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def configure_logging():
     logging.basicConfig(
         level=logging.INFO,

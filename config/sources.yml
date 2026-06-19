@@ -5,8 +5,14 @@ defaults:
 
 sources:
   - name: noaa_test
-    type: http_csv
-    url: https://www.ncei.noaa.gov/data/global-summary-of-the-month/access/USC00129222.csv
+    type: noaa_gsom
+    base_url: https://www.ncei.noaa.gov/data/global-summary-of-the-month/access
+    
+    stations:
+      - USC00218450
+      - USC00129222
+      - USW00003812
+    
     target_table: stg_noaa_test
 
     pk: [station, date]
@@ -25,6 +31,11 @@ sources:
       - prcp >= 0
       - snow >= 0
       - tmax >= tmin
+
+    time_filter:
+      column: date
+      start: 2016-01-01
+      end: 2020-12-31
 
   - name: noaa_monthly_sample
     type: csv

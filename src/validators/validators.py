@@ -26,7 +26,8 @@ def apply_schema_casts(df, schema, source_name):
         # Config validation
         if col not in df.columns:
             # Possibly change to a warning log later
-            raise KeyError(f"Schema column missing in dataframe: {col}")
+            logger.warning(f"[{source_name}] Missing column '{col}' filling with NA")
+            df[col] = pd.Series([pd.NA] * len(df))
 
         try:
             target_type = PANDAS_TYPE_MAP[col_type]
@@ -41,9 +42,14 @@ def apply_schema_casts(df, schema, source_name):
                 converted = pd.to_datetime(df[col], errors="coerce")
             except Exception as e:
                 raise ValueError(f"Failed to convert column '{col}' to datetime") from e
+        elif col_type == "str":
+            try:
+                converted = df[col].astype(col_type)
+            except Exception as e:
+                raise ValueError(f"Failed to cast column {col} to {target_type}")
         else:
             try:
-                converted = df[col].astype(target_type)
+                converted = pd.to_numeric(df[col], errors="coerce")
             except Exception as e:
                 raise ValueError(f"Failed to cast column {col} to {target_type}") from e
 

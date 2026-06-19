@@ -2,8 +2,11 @@ import json
 import logging
 import os
 import pandas as pd
+import requests
 
-logger = logging.getLogger(__name__)
+from io import StringIO
+
+from loggers.logging_config import logger
 
 
 def read_input(source):
@@ -16,6 +19,8 @@ def read_input(source):
         return read_csv(source)
     elif source["type"] == "json":
         return read_json(source)
+    elif source["type"] == "http_csv":
+        return read_http_csv(source)
     else:
         raise ValueError(f"Unsupported source type {source['type']}")
 
@@ -92,3 +97,37 @@ def read_json(source):
 
     logger.info(f"JSON file read from: {path}")
     return df
+
+def read_http_csv(source):
+    """
+    Reads one or more remote CSV files over HTTP(S) baseed on the config.
+    """
+
+    urls = []
+
+    if "url" in source:
+        urls = [source["url"]]
+    elif "urls" in source:
+        urls = source["urls"]
+    else:
+        raise ValueError("HTTP CSV source must define either 'url' or 'urls'.")
+    
+    frames = []
+
+    for url in urls:
+        logger.info(f"Downloading CSV from {url}")
+
+        try:
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+
+            df = pd.read_csv(StringIO(response.text))
+            frames.append(df)
+
+        except requests.RequestException as e:
+            raise ConnectionError(f"Failed to download CSV from: {url}") from e
+        
+        except pd.errors.ParserError as e:
+            raise ValueError(f"FAiled to parse CSV from: {url}") from e
+        
+    return pd.concat(frames, ignore_index=True)

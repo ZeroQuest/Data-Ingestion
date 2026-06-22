@@ -40,8 +40,11 @@ def test_apply_schema_casts_missing_column():
 
     schema = {"date": "datetime"}
 
-    with pytest.raises(KeyError):
-        apply_schema_casts(df, schema, "test_source")
+    result, rejects = apply_schema_casts(df, schema, "test_source")
+
+    assert "date" in result.columns
+    assert result["date"].isna().all()
+    assert len(rejects) == 0
 
 
 def test_apply_schema_casts_invalid_type():
@@ -52,6 +55,60 @@ def test_apply_schema_casts_invalid_type():
     with pytest.raises(ValueError):
         apply_schema_casts(df, schema, "test_source")
 
+def test_apply_schema_casts_missing_float_column():
+    df = pd.DataFrame({"station": ["ABC"]})
+
+    schema = {"awnd": "float"}
+
+    result, rejects = apply_schema_casts(df, schema, "test_source")
+
+    assert "awnd" in result.columns
+    assert result["awnd"].isna().all()
+    assert len(rejects) == 0
+
+def test_apply_schema_casts_missing_string_column():
+    df = pd.DataFrame({"station": ["ABC"]})
+
+    schema = {"name": "str"}
+
+    result, rejects = apply_schema_casts(df, schema, "test_source")
+
+    assert "name" in result.columns
+    assert result["name"].isna().all()
+    assert len(rejects) == 0
+
+def test_apply_schema_casts_missing_int_column():
+    df = pd.DataFrame({"station": ["ABC"]})
+
+    schema = {"elevation": "int"}
+
+    result, rejects = apply_schema_casts(df, schema, "test_source")
+
+    assert "elevation" in result.columns
+    assert result["elevation"].isna().all()
+    assert len(rejects) == 0
+
+def test_apply_schema_casts_missing_datetime_column():
+    df = pd.DataFrame({"station": ["ABC"]})
+
+    schema = {"date": "datetime"}
+
+    result, rejects = apply_schema_casts(df, schema, "test_source")
+
+    assert "date" in result.columns
+    assert result["date"].isna().all()
+    assert len(rejects) == 0
+
+def test_apply_schema_casts_invalid_float_creates_reject():
+    df = pd.DataFrame({"prcp": ["1.5", "abc"]})
+
+    schema = {"prcp": "float"}
+
+    result, rejects = apply_schema_casts(df, schema, "test_source")
+
+    assert pd.isna(result.loc[1, "prcp"])
+    assert len(rejects) == 1
+    assert rejects[0]["reason"] == "schema_cast_failed:prcp"
 
 def test_enforce_required_valid():
     df = pd.DataFrame({"station": ["ABC"]})

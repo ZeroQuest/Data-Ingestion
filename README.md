@@ -1,54 +1,74 @@
-# data-ingestion
+# Data Ingestion Sub-System
 
-A configuration-driven ETL pipeline for ingesting structured data into PostgreSQL.
+Configuration-driven ETL pipeline for ingesting structured data into PostgreSQL.
 
-The project demonstrates modular ingestion, schema validation, reject handling, dynamic table creation, UPSERT loading, logging, and automated testing.
+The system implements modular ingestion with validation, transformation, reject handling, and structured loading into staging (bronze) tables.
+
+---
 
 ## Features
 
-* YAML-driven ingestion workflows
-* CSV and JSON source support
-* Automatic PostgreSQL table creation
-* Schema-based type casting
-* Primary key enforcement
-* Rule-based validation
-* Reject auditing via `stg_rejects`
-* UPSERT loading strategy
-* Pytest unit testing and coverage reporting
-* Structured logging
+- YAML-driven ingestion workflows  
+- CSV and JSON source support  
+- PostgreSQL staging table creation  
+- Schema-based type casting  
+- Primary key enforcement  
+- Rule-based validation  
+- Reject capture via `stg_rejects`  
+- Upsert-based loading strategy  
+- Structured logging  
+- Unit tests with pytest and coverage reporting  
+
+---
 
 ## Architecture
 
-```text
-Reader
-  ↓
-Validator
-  ↓
-Cleaner
-  ↓
-Loader
-  ↓
-PostgreSQL
+### Pipeline Flow
 
-Rejected Records
+```text
+CSV / JSON / API Sources
         ↓
-   stg_rejects
+Reader (extract raw data)
+        ↓
+Validator (schema + rule checks)
+        ↓
+Cleaner (type casting + normalization)
+        ↓
+Loader (insert into PostgreSQL staging tables)
+        ↓
+stg_* tables (clean dataset)
 ```
+
+---
+
+### Reject Flow
+
+```text
+Invalid Records
+        ↓
+Validation Failure Reason Attached
+        ↓
+stg_rejects (audit table for debugging and replay)
+```
+
+---
 
 ## Repository Structure
 
 ```text
 src/
-├── cleaners/
-├── database/
-├── loaders/
-├── loggers/
-├── readers/
-├── tests/
-├── utils/
-├── validators/
-└── main.py
+├── cleaners/        # Data normalization and type casting
+├── database/        # PostgreSQL connection + query execution
+├── loaders/         # Insert and upsert logic
+├── loggers/         # Structured logging utilities
+├── readers/         # CSV, JSON, API ingestion
+├── tests/           # Unit and integration tests
+├── utils/           # Shared helpers
+├── validators/      # Schema + rule validation engine
+└── main.py          # Pipeline entry point
 ```
+
+---
 
 ## Configuration Example
 
@@ -69,10 +89,14 @@ sources:
       - temperature >= -100
 ```
 
+---
+
 ## Requirements
 
-* Python 3.11+
-* PostgreSQL
+- Python 3.11+
+- PostgreSQL
+
+---
 
 ## Setup
 
@@ -81,17 +105,21 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Create a `.env` file:
+Environment variables:
 
-```env
+```bash
 DATABASE_URL=postgresql://user:password@localhost:5432/database
 ```
+
+---
 
 ## Running
 
 ```bash
 python src/main.py
 ```
+
+---
 
 ## Testing
 
@@ -100,22 +128,24 @@ pytest
 pytest --cov --cov-report=term-missing
 ```
 
+---
+
 ## Future Enhancements
 
-* Open-Meteo API ingestion
-* NOAA GSOM remote CSV ingestion
-* Integration testing
-* Docker support
-* GitHub Actions CI/CD
-* Incremental loading
-* ETL audit tracking
+- Open-Meteo API ingestion  
+- NOAA GSOM ingestion  
+- Integration testing  
+- Docker support  
+- CI/CD pipeline  
+- Incremental loading  
+- Audit tracking  
+
+---
 
 ## Design Principles
 
-* Thin orchestration layer
-* Configuration over hardcoding
-* Modular processing stages
-* Testable components
-* Fail-fast validation
-* Explicit reject handling
-
+- Modular pipeline stages (extract → validate → transform → load)  
+- Configuration-driven design  
+- Explicit reject handling (no silent failures)  
+- Reproducibility and idempotency  
+- Testable components  

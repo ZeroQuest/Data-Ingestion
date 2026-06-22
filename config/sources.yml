@@ -1,5 +1,5 @@
 defaults:
-  db_url: DATABASE_URL
+  db_url_env: DATABASE_URL
   batch_size: 500
   on_conflict: upsert
 
@@ -98,7 +98,7 @@ sources:
 
   - name: noaa_monthly_sample
     type: csv
-    path: sample_data/small_sample.csv
+    path: data_sources/small_sample.csv
     target_table: stg_noaa_monthly
     pk: [station, date]
 
@@ -120,7 +120,7 @@ sources:
   - name: open_meteo_sample
     type: json
     json_root: hourly
-    path: sample_data/open_meteo_sample.json
+    path: data_sources/open_meteo_sample.json
     target_table: stg_open_meteo
     pk: [latitude, longitude, time]
 

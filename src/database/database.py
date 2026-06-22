@@ -1,6 +1,8 @@
 import os
 import psycopg
 import logging
+from pathlib import Path
+from utils.utils import project_path
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +14,7 @@ def database_setup(defaults):
     Returns the connection
     """
 
-    db_url = os.getenv("DATABASE_URL")
+    db_url = os.getenv(defaults["db_url_env"])
 
     if not db_url:
         raise ValueError(f"DATABASE_URL env value not set or invalid: {db_url}")
@@ -40,10 +42,15 @@ def database_setup(defaults):
     return conn
 
 
-def init_sql(conn, path="../sql/init.sql"):
+def init_sql(conn, path=None):
     """
     Reads and initializes the sql database from the init.sql file
     """
+    if path is None:
+        path = project_path("sql", "init.sql")
+    else:
+        path = Path(path)
+
     try:
         with open(path, "r", encoding="utf-8") as file:
             sql = file.read()

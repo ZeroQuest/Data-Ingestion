@@ -18,7 +18,7 @@ def log_source_start(source_name):
 def log_source_complete(source_name, rows_loaded, rejects):
     logger.info(
         "Completed source '%s' (rows_loaded=%s rejects=%s)",
-        source_name,
+        str(source_name),
         rows_loaded,
         rejects,
     )

@@ -1,11 +1,11 @@
 import json
-import os
 import pandas as pd
 import requests
 
 from io import StringIO
 
 from loggers.logging_config import logger
+from utils.utils import project_path
 
 
 def read_input(source):
@@ -31,7 +31,7 @@ def read_csv(source):
     Reads a .csv file based on the path provided in the config
     Returns a pandas dataframe
     """
-    path = os.path.join("..", source["path"])
+    path = project_path(source["path"])
     logger.info(f"CSV file read from: {path}")
 
     try:
@@ -47,7 +47,7 @@ def read_json(source):
     Reads a .json file based on the path provided in the config
     Returns a pandas dataframe
     """
-    path = os.path.join("..", source["path"])
+    path = project_path(source["path"])
 
     # Load the entire json file
     try:

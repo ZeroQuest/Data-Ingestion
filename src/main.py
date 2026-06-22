@@ -6,7 +6,11 @@ from database.database import database_setup, create_schema
 from sources.resolver import resolve_source
 
 from readers.readers import read_input
-from cleaners.cleaners import normalize_columns, normalize_for_database, apply_time_filter
+from cleaners.cleaners import (
+    normalize_columns,
+    normalize_for_database,
+    apply_time_filter,
+)
 
 from validators.validators import (
     apply_schema_casts,

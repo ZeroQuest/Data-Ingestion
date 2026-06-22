@@ -1,9 +1,6 @@
 import pytest
-from sources.resolver import (
-    resolve_noaa_gsom,
-    resolve_open_meteo,
-    resolve_source
-)
+from sources.resolver import resolve_noaa_gsom, resolve_open_meteo
+
 
 def test_noaa_resolver_expands_urls():
     source = {
@@ -14,7 +11,7 @@ def test_noaa_resolver_expands_urls():
         "target_table": "stg",
         "pk": ["station"],
         "schema": {"station": "str"},
-        "rules": []
+        "rules": [],
     }
 
     resolved = resolve_noaa_gsom(source)
@@ -23,16 +20,13 @@ def test_noaa_resolver_expands_urls():
     assert len(resolved["urls"]) == 2
     assert resolved["urls"][0].endswith("US1.csv")
 
+
 def test_noaa_missing_stations_raises():
-    source = {
-        "name": "bad",
-        "type": "noaa_gsom",
-        "base_url": "x",
-        "stations": []
-    }
+    source = {"name": "bad", "type": "noaa_gsom", "base_url": "x", "stations": []}
 
     with pytest.raises(ValueError):
         resolve_noaa_gsom(source)
+
 
 def test_open_meteo_url_build():
     source = {
@@ -43,13 +37,11 @@ def test_open_meteo_url_build():
         "longitude": 20,
         "start_date": "2024-01-01",
         "end_date": "2024-01-02",
-        "params": {
-            "hourly": ["temperature_2m"]
-        },
+        "params": {"hourly": ["temperature_2m"]},
         "target_table": "t",
         "pk": ["time"],
         "schema": {},
-        "rules": []
+        "rules": [],
     }
 
     resolved = resolve_open_meteo(source)

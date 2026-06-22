@@ -45,7 +45,7 @@ def apply_schema_casts(df, schema, source_name):
         elif col_type == "str":
             try:
                 converted = df[col].astype(col_type)
-            except Exception as e:
+            except Exception:
                 raise ValueError(f"Failed to cast column {col} to {target_type}")
         else:
             try:

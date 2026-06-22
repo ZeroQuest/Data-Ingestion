@@ -98,7 +98,7 @@ sources:
 
   - name: noaa_monthly_sample
     type: csv
-    path: sample_data/small_sample.csv #sample_data/gsom_sample_csv.csv
+    path: sample_data/small_sample.csv
     target_table: stg_noaa_monthly
     pk: [station, date]
 

@@ -6,12 +6,13 @@ import requests
 from unittest.mock import Mock
 
 from readers.readers import (
-    read_input, 
-    read_csv, 
+    read_input,
+    read_csv,
     read_json,
     read_http_csv,
-    read_http_json
+    read_http_json,
 )
+
 
 def test_read_input_routes_to_csv(tmp_path, monkeypatch):
     file = tmp_path / "data.csv"
@@ -124,6 +125,7 @@ def test_read_json_invalid_json(tmp_path, monkeypatch):
     with pytest.raises(ValueError):
         read_json(source)
 
+
 def test_read_http_csv(monkeypatch):
     response = Mock()
     response.text = "id,name\n1,bob\n2,alice"
@@ -134,12 +136,11 @@ def test_read_http_csv(monkeypatch):
         lambda url, timeout: response,
     )
 
-    df = read_http_csv({
-        "url": "https://example.com/test.csv"
-    })
+    df = read_http_csv({"url": "https://example.com/test.csv"})
 
     assert len(df) == 2
     assert list(df.columns) == ["id", "name"]
+
 
 def test_read_http_csv_multiple_urls(monkeypatch):
 
@@ -152,12 +153,9 @@ def test_read_http_csv_multiple_urls(monkeypatch):
         lambda url, timeout: response,
     )
 
-    df = read_http_csv({
-        "urls": [
-            "https://example.com/a.csv",
-            "https://example.com/b.csv"
-        ]
-    })
+    df = read_http_csv(
+        {"urls": ["https://example.com/a.csv", "https://example.com/b.csv"]}
+    )
 
     assert len(df) == 2
 
@@ -165,21 +163,21 @@ def test_read_http_csv_multiple_urls(monkeypatch):
 
         def fake_get(url, timeout):
             raise requests.RequestException("network failure")
-        
+
         monkeypatch.setattr(
             "readers.readers.requests.get",
             fake_get,
         )
 
         with pytest.raises(ConnectionError):
-            read_http_csv({
-                "url": "https://example.com/test.csv"
-            })
+            read_http_csv({"url": "https://example.com/test.csv"})
+
 
 def test_read_http_csv_missing_url():
 
     with pytest.raises(ValueError):
         read_http_csv({})
+
 
 def test_read_http_json(monkeypatch):
 
@@ -206,33 +204,35 @@ def test_read_http_json(monkeypatch):
         lambda url, timeout: response,
     )
 
-    df = read_http_json({
-        "url": "https://api.open-meteo.com",
-        "json_root": "hourly",
-    })
+    df = read_http_json(
+        {
+            "url": "https://api.open-meteo.com",
+            "json_root": "hourly",
+        }
+    )
 
     assert len(df) == 2
     assert "latitude" in df.columns
     assert "longitude" in df.columns
     assert "temperature_2m" in df.columns
 
+
 def test_read_http_json_connection_error(monkeypatch):
 
     def fake_get(url, timeout):
         raise requests.RequestException("connection failure")
-    
+
     monkeypatch.setattr(
         "readers.readers.requests.get",
         fake_get,
     )
 
     with pytest.raises(ConnectionError):
-        read_http_json({
-            "url": "https://api.open-meteo.com"
-        })
+        read_http_json({"url": "https://api.open-meteo.com"})
+
 
 def test_read_http_json_invalid_json(monkeypatch):
-    
+
     response = Mock()
 
     response.raise_for_status.return_value = None
@@ -244,9 +244,8 @@ def test_read_http_json_invalid_json(monkeypatch):
     )
 
     with pytest.raises(ValueError):
-        read_http_json({
-            "url": "https://api.open-meto.com"
-        })
+        read_http_json({"url": "https://api.open-meto.com"})
+
 
 def test_read_http_json_invalid_root(monkeypatch):
 
@@ -264,7 +263,9 @@ def test_read_http_json_invalid_root(monkeypatch):
     )
 
     with pytest.raises(ValueError):
-        read_http_json({
-            "url": "https://api.open-meteo.com",
-            "json_root": "hourly",
-        })
+        read_http_json(
+            {
+                "url": "https://api.open-meteo.com",
+                "json_root": "hourly",
+            }
+        )

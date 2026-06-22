@@ -31,6 +31,7 @@ def normalize_for_database(df):
 
     return df
 
+
 def apply_time_filter(df, source):
     """
     Filter for a specific time range.
@@ -39,7 +40,7 @@ def apply_time_filter(df, source):
     time_filter = source.get("time_filter")
     if not time_filter:
         return df
-    
+
     column = time_filter.get("column")
     start = time_filter.get("start")
     end = time_filter.get("end")

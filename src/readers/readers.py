@@ -7,6 +7,7 @@ from io import StringIO
 
 from loggers.logging_config import logger
 
+
 def read_input(source):
     """
     Reads the source input based on the configuration
@@ -98,6 +99,7 @@ def read_json(source):
     logger.info(f"JSON file read from: {path}")
     return df
 
+
 def read_http_csv(source):
     """
     Reads one or more remote CSV files over HTTP(S) baseed on the config.
@@ -109,10 +111,10 @@ def read_http_csv(source):
         urls = [source["url"]]
     elif "urls" in source:
         urls = source["urls"]
-   
+
     if not urls:
         raise ValueError("HTTP CSV source must define either 'url' or 'urls'.")
-    
+
     if isinstance(urls, str):
         urls = [urls]
 
@@ -131,17 +133,18 @@ def read_http_csv(source):
         except requests.RequestException as e:
             logger.error(f"HTTP failure for CSV source: {url}")
             raise ConnectionError(f"Failed to download CSV from: {url}") from e
-        
+
         except pd.errors.ParserError as e:
             logger.error(f"CSV parse failure: {url}")
             raise ValueError(f"FAiled to parse CSV from: {url}") from e
-        
+
     if not frames:
         raise ValueError("No CSV frames were successfully loaded from source.")
-    
+
     logger.info(f"Loaded HTTP CSV: {len(frames)} files combined")
 
     return pd.concat(frames, ignore_index=True)
+
 
 def read_http_json(source):
     """
@@ -151,7 +154,7 @@ def read_http_json(source):
 
     if not url:
         raise ValueError("HTTP JSON source missing 'url'.")
-    
+
     logger.info(f"Fetching JSON from {url}")
 
     try:
@@ -159,11 +162,11 @@ def read_http_json(source):
         response.raise_for_status()
 
         data = response.json()
-    
+
     except requests.RequestException as e:
         logger.error(f"HTTP failure for JSON source: {url}")
         raise ConnectionError(f"Failed to fetch JSON from: {url}") from e
-    
+
     except ValueError as e:
         logger.error(f"Invalid JSON reponse: {url}")
         raise ValueError(f"Failed to parse JSON from: {url}") from e
@@ -191,4 +194,3 @@ def read_http_json(source):
     logger.info(f"Loaded HTTP JSON rows: {len(df)}")
 
     return df
-

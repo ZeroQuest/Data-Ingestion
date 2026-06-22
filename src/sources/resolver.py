@@ -1,5 +1,6 @@
 from loggers.logging_config import logger
 
+
 def resolve_source(source):
     """
     Turn high-level dataset definitions into executable ingestion configs.
@@ -14,6 +15,7 @@ def resolve_source(source):
     # We passthrough for generic sources
     return source
 
+
 def resolve_noaa_gsom(source):
     """
     Expands NOAA GSOM config into http_csv ingestion config
@@ -25,7 +27,7 @@ def resolve_noaa_gsom(source):
         raise ValueError("noaa_gsom requires 'base_url'")
     if not stations or not isinstance(stations, list):
         raise ValueError("noaa_gsom requires 'stations'")
-    
+
     logger.info(f"Resolving NOAA GSOM source for {len(stations)} stations")
 
     urls = []
@@ -36,7 +38,7 @@ def resolve_noaa_gsom(source):
             continue
 
         urls.append(f"{base_url.rstrip('/')}/{station}.csv")
-    
+
     if not urls:
         raise ValueError("noaa_gsom produced no valid URLs")
 
@@ -44,17 +46,16 @@ def resolve_noaa_gsom(source):
     resolved = {
         "type": "http_csv",
         "urls": urls,
-
         "name": source.get("name"),
         "target_table": source.get("target_table"),
         "pk": source.get("pk"),
         "schema": source.get("schema"),
         "rules": source.get("rules"),
-
-        "time_filter": source.get("time_filter")
+        "time_filter": source.get("time_filter"),
     }
 
     return resolved
+
 
 def resolve_open_meteo(source):
     """
@@ -76,9 +77,7 @@ def resolve_open_meteo(source):
     hourly = source["params"]["hourly"]
     params["hourly"] = ",".join(hourly)
 
-    url = base_url + "?" + "&".join(
-        f"{key}={value}" for key, value in params.items()
-    )
+    url = base_url + "?" + "&".join(f"{key}={value}" for key, value in params.items())
 
     logger.info(
         f"Resolving source: {source.get('name')} -> http_json | "
@@ -89,12 +88,10 @@ def resolve_open_meteo(source):
     return {
         "type": "http_json",
         "url": url,
-
         "name": source["name"],
         "target_table": source["target_table"],
         "pk": source["pk"],
         "schema": source["schema"],
         "rules": source["rules"],
-
         "json_root": "hourly",
     }

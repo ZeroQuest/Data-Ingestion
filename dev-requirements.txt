@@ -1,0 +1,16 @@
+-r requirements.txt
+
+pytest==9.0.3
+pytest-cov==7.1.0
+coverage==7.14.1
+
+black==26.5.1
+ruff==0.15.14
+
+pre_commit==4.6.0
+
+debugpy==1.8.21
+
+ipykernel==7.3.0
+jupyterlab==4.5.8
+notebook==7.5.7

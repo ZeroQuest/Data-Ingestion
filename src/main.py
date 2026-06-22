@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+from pathlib import Path
 
 from config.config_loader import load_config
 from database.database import database_setup, create_schema
@@ -27,6 +28,7 @@ from loggers.logging_config import (
     log_source_complete,
 )
 
+from utils.utils import project_path
 
 def run_source(connection, source, defaults):
     """
@@ -54,13 +56,13 @@ def run_source(connection, source, defaults):
         batch_size=defaults["batch_size"],
     )
     write_rejects(connection, rejects, defaults["batch_size"])
-    log_source_complete(str(source), len(df), len(rejects))
+    log_source_complete(str(source["name"]), len(df), len(rejects))
 
 
 def main():
     load_dotenv()
 
-    path: str = "../config/sources.yml"
+    path = project_path("config", "sources.yml")
     config = load_config(path)
 
     defaults = config["defaults"]

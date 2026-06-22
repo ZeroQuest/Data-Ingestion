@@ -13,8 +13,15 @@ def normalize_columns(df):
     df.columns = df.columns.str.strip()
     df.columns = df.columns.str.lower()
     df.columns = df.columns.str.replace(" ", "_")
-    logger.info(f"Normalized columns: {original_data} to: {df.columns.tolist()}")
 
+    logger.info(
+        "Normalized columns: %d → %d (added=%d removed=%d)",
+        len(original_data),
+        len(df.columns),
+        len(set(df.columns) - set(original_data)),
+        len(set(original_data) - set(df.columns)),
+    )
+    
     return df
 
 

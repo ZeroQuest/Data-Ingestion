@@ -7,8 +7,10 @@ if os.getenv("RUNNING_IN_DOCKER") == "true":
 else:
     BASE_DIR = Path(__file__).resolve().parents[2]
 
+
 def project_path(*parts):
     return BASE_DIR.joinpath(*parts)
+
 
 def emit_reject(source_name, reason, row):
     """

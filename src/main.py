@@ -1,5 +1,4 @@
 from dotenv import load_dotenv
-from pathlib import Path
 
 from config.config_loader import load_config
 from database.database import database_setup, create_schema
@@ -29,6 +28,7 @@ from loggers.logging_config import (
 )
 
 from utils.utils import project_path
+
 
 def run_source(connection, source, defaults):
     """

@@ -21,7 +21,7 @@ def normalize_columns(df):
         len(set(df.columns) - set(original_data)),
         len(set(original_data) - set(df.columns)),
     )
-    
+
     return df
 
 

@@ -1,9 +1,11 @@
 import json
-import logging
 import os
 import pandas as pd
+import requests
 
-logger = logging.getLogger(__name__)
+from io import StringIO
+
+from loggers.logging_config import logger
 
 
 def read_input(source):
@@ -16,6 +18,10 @@ def read_input(source):
         return read_csv(source)
     elif source["type"] == "json":
         return read_json(source)
+    elif source["type"] == "http_csv":
+        return read_http_csv(source)
+    elif source["type"] == "http_json":
+        return read_http_json(source)
     else:
         raise ValueError(f"Unsupported source type {source['type']}")
 
@@ -91,4 +97,100 @@ def read_json(source):
         df[key] = value
 
     logger.info(f"JSON file read from: {path}")
+    return df
+
+
+def read_http_csv(source):
+    """
+    Reads one or more remote CSV files over HTTP(S) baseed on the config.
+    """
+
+    urls = []
+
+    if "url" in source:
+        urls = [source["url"]]
+    elif "urls" in source:
+        urls = source["urls"]
+
+    if not urls:
+        raise ValueError("HTTP CSV source must define either 'url' or 'urls'.")
+
+    if isinstance(urls, str):
+        urls = [urls]
+
+    frames = []
+
+    for url in urls:
+        logger.info(f"Downloading CSV from {url}")
+
+        try:
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+
+            df = pd.read_csv(StringIO(response.text))
+            frames.append(df)
+
+        except requests.RequestException as e:
+            logger.error(f"HTTP failure for CSV source: {url}")
+            raise ConnectionError(f"Failed to download CSV from: {url}") from e
+
+        except pd.errors.ParserError as e:
+            logger.error(f"CSV parse failure: {url}")
+            raise ValueError(f"FAiled to parse CSV from: {url}") from e
+
+    if not frames:
+        raise ValueError("No CSV frames were successfully loaded from source.")
+
+    logger.info(f"Loaded HTTP CSV: {len(frames)} files combined")
+
+    return pd.concat(frames, ignore_index=True)
+
+
+def read_http_json(source):
+    """
+    Reads json over http(s)
+    """
+    url = source["url"]
+
+    if not url:
+        raise ValueError("HTTP JSON source missing 'url'.")
+
+    logger.info(f"Fetching JSON from {url}")
+
+    try:
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+
+        data = response.json()
+
+    except requests.RequestException as e:
+        logger.error(f"HTTP failure for JSON source: {url}")
+        raise ConnectionError(f"Failed to fetch JSON from: {url}") from e
+
+    except ValueError as e:
+        logger.error(f"Invalid JSON reponse: {url}")
+        raise ValueError(f"Failed to parse JSON from: {url}") from e
+
+    json_root = source.get("json_root")
+
+    try:
+        # Case for Open-Meteo
+        if json_root:
+            root = data[json_root]
+            df = pd.DataFrame(root)
+        else:
+            df = pd.DataFrame([data])
+    except Exception as e:
+        logger.error(f"Failed to normalize JSON structure: {url}")
+        raise ValueError(f"Invalid JSON structure for: {url}") from e
+
+    if isinstance(data, dict):
+        if "latitude" in data:
+            df["latitude"] = data["latitude"]
+
+        if "longitude" in data:
+            df["longitude"] = data["longitude"]
+
+    logger.info(f"Loaded HTTP JSON rows: {len(df)}")
+
     return df

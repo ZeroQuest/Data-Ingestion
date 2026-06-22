@@ -3,8 +3,14 @@ from dotenv import load_dotenv
 from config.config_loader import load_config
 from database.database import database_setup, create_schema
 
+from sources.resolver import resolve_source
+
 from readers.readers import read_input
-from cleaners.cleaners import normalize_columns, normalize_for_database
+from cleaners.cleaners import (
+    normalize_columns,
+    normalize_for_database,
+    apply_time_filter,
+)
 
 from validators.validators import (
     apply_schema_casts,
@@ -27,9 +33,11 @@ def run_source(connection, source, defaults):
     Runs the ETL pipeline for a given source.
     """
     log_source_start(str(source["name"]))
+    source = resolve_source(source)
     df = read_input(source)
     df = normalize_columns(df)
     df, rejects = apply_schema_casts(df, source["schema"], source["name"])
+    df = apply_time_filter(df, source)
     df = df[list(source["schema"].keys())]
     df, enforce_required_rejects = enforce_required(df, source["pk"], source["name"])
     rejects += enforce_required_rejects

@@ -4,9 +4,101 @@ defaults:
   on_conflict: upsert
 
 sources:
+  - name: noaa_test
+    type: noaa_gsom
+    base_url: https://www.ncei.noaa.gov/data/global-summary-of-the-month/access
+    
+    stations:
+      - USC00218450
+      - USC00129222
+      - USW00003812
+    
+    target_table: stg_noaa_test
+
+    pk: [station, date]
+
+    schema:
+      station: str
+      name: str
+      date: datetime
+      prcp: float
+      snow: float
+      tmax: float
+      tmin: float
+      awnd: float
+
+    rules:
+      - prcp >= 0
+      - snow >= 0
+      - tmax >= tmin
+
+    time_filter:
+      column: date
+      start: 2016-01-01
+      end: 2020-12-31
+
+  - name: open_meteo_api
+
+    type: open_meteo
+
+    base_url: https://archive-api.open-meteo.com/v1/archive
+
+    latitude: 35.4319
+    longitude: -82.5375
+
+    start_date: 2024-01-01
+    end_date: 2025-12-31
+
+    params:
+      hourly:
+        - temperature_2m
+        - apparent_temperature
+        - precipitation
+        - snowfall
+        - wind_speed_10m
+        - wind_gusts_10m
+        - relative_humidity_2m
+        - cloud_cover
+        - pressure_msl
+
+    target_table: stg_open_meteo
+
+    pk:
+      - latitude
+      - longitude
+      - time
+
+    schema:
+      latitude: float
+      longitude: float
+      time: datetime
+
+      temperature_2m: float
+      apparent_temperature: float
+      precipitation: float
+      snowfall: float
+
+      wind_speed_10m: float
+      wind_gusts_10m: float
+
+      relative_humidity_2m: float
+      cloud_cover: float
+      pressure_msl: float
+
+    rules:
+      - latitude >= -90
+      - latitude <= 90
+      - longitude >= -180
+      - longitude <= 180
+      - precipitation >= 0
+      - snowfall >= 0
+      - wind_speed_10m >= 0
+      - wind_gusts_10m >= 0
+
+
   - name: noaa_monthly_sample
     type: csv
-    path: sample_data/small_sample.csv #sample_data/gsom_sample_csv.csv
+    path: sample_data/small_sample.csv
     target_table: stg_noaa_monthly
     pk: [station, date]
 

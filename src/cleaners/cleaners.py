@@ -30,3 +30,32 @@ def normalize_for_database(df):
     df = df.where(pd.notnull(df), None)
 
     return df
+
+
+def apply_time_filter(df, source):
+    """
+    Filter for a specific time range.
+    """
+
+    time_filter = source.get("time_filter")
+    if not time_filter:
+        return df
+
+    column = time_filter.get("column")
+    start = time_filter.get("start")
+    end = time_filter.get("end")
+
+    if column not in df.columns:
+        raise ValueError(f"Time filter column '{column}' not in dataframe")
+
+    logger.info(f"Applying time filter on {column}: {start} -> {end}")
+
+    df[column] = pd.to_datetime(df[column], errors="coerce")
+
+    if start:
+        df = df[df[column] >= pd.to_datetime(start)]
+
+    if end:
+        df = df[df[column] <= pd.to_datetime(end)]
+
+    return df

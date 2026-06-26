@@ -2,7 +2,7 @@
 
 Configuration-driven ETL pipeline for ingesting structured data into PostgreSQL.
 
-The system implements modular ingestion with validation, transformation, reject handling, and structured loading into staging (bronze) tables.
+The system implements modular ingestion with validation, transformation, reject handling, and structured loading into staging tables.
 
 ---
 
